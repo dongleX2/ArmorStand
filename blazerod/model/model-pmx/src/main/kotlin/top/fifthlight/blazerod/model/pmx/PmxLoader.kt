@@ -71,7 +71,8 @@ class PmxLoader : ModelFileLoader {
         private lateinit var textures: List<Texture?>
         private lateinit var materials: List<PmxMaterial>
         private lateinit var bones: List<PmxBone>
-        private lateinit var ikAffectedBoneIndices: Set<Int>
+        private val targetToIkDataMap = mutableMapOf<Int, MutableList<PmxBone.IkData>>()
+        private val sourceToInheritMap = mutableMapOf<Int, MutableList<PmxBone.InheritData>>()
         private lateinit var morphTargets: List<PmxMorph>
         private lateinit var morphTargetGroups: List<PmxMorphGroup>
         private val childBoneMap = mutableMapOf<Int, MutableList<Int>>()
@@ -619,6 +620,7 @@ class PmxLoader : ModelFileLoader {
                     isVisible = loadBitfield(3),
                     enabled = loadBitfield(4),
                     ik = loadBitfield(5),
+                    inheritLocal = loadBitfield(7),
                     inheritRotation = loadBitfield(8),
                     inheritTranslation = loadBitfield(9),
                     fixedAxis = loadBitfield(10),
@@ -628,8 +630,7 @@ class PmxLoader : ModelFileLoader {
                 )
             }
 
-            val ikAffectedBoneIndices = mutableSetOf<Int>()
-            fun loadBone(buffer: ByteBuffer): PmxBone {
+            fun loadBone(index: Int, buffer: ByteBuffer): PmxBone {
                 val nameLocal = loadString(buffer)
                 val nameUniversal = loadString(buffer)
                 val position = loadVector3f(buffer).invertZ()
@@ -668,11 +669,10 @@ class PmxLoader : ModelFileLoader {
                     val linkCount = buffer.getInt()
                     val links = (0 until linkCount).map {
                         val index = loadBoneIndex(buffer)
-                        ikAffectedBoneIndices += index
                         val limits = if (buffer.get() != 0.toByte()) {
                             PmxBone.IkLink.Limits(
-                                limitMin = loadVector3f(buffer).invertZ(),
-                                limitMax = loadVector3f(buffer).invertZ(),
+                                limitMin = loadVector3f(buffer),
+                                limitMax = loadVector3f(buffer),
                             )
                         } else {
                             null
@@ -683,15 +683,19 @@ class PmxLoader : ModelFileLoader {
                         )
                     }
                     PmxBone.IkData(
+                        effectorIndex = index,
                         targetIndex = targetIndex,
                         loopCount = loopCount,
                         limitRadian = limitRadian,
                         links = links,
-                    )
+                    ).also {
+                        targetToIkDataMap.getOrPut(targetIndex, ::mutableListOf).add(it)
+                    }
                 } else {
                     null
                 }
                 return PmxBone(
+                    index = index,
                     nameLocal = nameLocal,
                     nameUniversal = nameUniversal,
                     position = position,
@@ -705,12 +709,15 @@ class PmxLoader : ModelFileLoader {
                     localCoordinate = localCoordinate,
                     externalParentIndex = externalParentIndex,
                     ikData = ikData,
-                )
+                ).also {
+                    it.inheritData?.let {
+                        sourceToInheritMap.getOrPut(it.sourceIndex) { mutableListOf() }.add(it)
+                    }
+                }
             }
-            this.ikAffectedBoneIndices = ikAffectedBoneIndices
 
             bones = (0 until boneCount).map { index ->
-                loadBone(buffer).also { bone ->
+                loadBone(index, buffer).also { bone ->
                     bone.parentBoneIndex?.let { parentBoneIndex ->
                         childBoneMap.getOrPut(parentBoneIndex) { mutableListOf() }.add(index)
                     } ?: run {
@@ -855,40 +862,42 @@ class PmxLoader : ModelFileLoader {
                 } ?: listOf()
 
                 val components = buildList {
-                    if (bone.flags.ik) {
-                        bone.ikData?.let { ikData ->
-                            add(
-                                NodeComponent.IkTargetComponent(
-                                    ikTarget = IkTarget(
-                                        targetNodeId = NodeId(modelId, ikData.targetIndex),
-                                        loopCount = ikData.loopCount,
-                                        limitRadian = ikData.limitRadian,
-                                        ikLinks = ikData.links.map { link ->
-                                            IkTarget.IkLink(
-                                                nodeId = NodeId(modelId, link.index),
-                                                limit = link.limits?.let {
-                                                    IkTarget.IkLink.Limits(
-                                                        min = it.limitMin,
-                                                        max = it.limitMax,
-                                                    )
-                                                }
-                                            )
-                                        }
-                                    ),
-                                    transformId = TransformId.IK,
-                                )
+                    val ikData = targetToIkDataMap[index]?.forEach { data ->
+                        add(
+                            NodeComponent.IkTargetComponent(
+                                ikTarget = IkTarget(
+                                    limitRadian = data.limitRadian,
+                                    loopCount = data.loopCount,
+                                    joints = data.links.map { link ->
+                                        IkTarget.IkJoint(
+                                            nodeId = NodeId(modelId, link.index),
+                                            limit = link.limits?.let {
+                                                IkTarget.IkJoint.Limits(
+                                                    min = it.limitMax.negate(Vector3f()),
+                                                    max = it.limitMin.negate(Vector3f()),
+                                                )
+                                            }
+                                        )
+                                    },
+                                    effectorNodeId = NodeId(modelId, data.effectorIndex),
+                                ),
+                                transformId = TransformId.IK,
                             )
-                        }
-                    }
-
-                    if (bone.flags.inheritRotation || bone.flags.inheritTranslation) {
-                        val influence = Influence(
-                            source = NodeId(modelId, bone.inheritParentIndex!!),
-                            influence = bone.inheritParentInfluence!!,
-                            influenceRotation = bone.flags.inheritRotation,
-                            influenceTranslation = bone.flags.inheritTranslation,
                         )
-                        add(NodeComponent.InfluenceTargetComponent(influence, TransformId.INFLUENCE))
+                    }
+                    sourceToInheritMap[index]?.forEach { data ->
+                        add(
+                            NodeComponent.InfluenceSourceComponent(
+                                influence = Influence(
+                                    target = NodeId(modelId, data.targetIndex),
+                                    influence = data.influence,
+                                    influenceRotation = data.inheritRotation,
+                                    influenceTranslation = data.inheritTranslation,
+                                    appendLocal = data.inheritLocal,
+                                ),
+                                transformId = TransformId.INFLUENCE,
+                            )
+                        )
                     }
                 }
 

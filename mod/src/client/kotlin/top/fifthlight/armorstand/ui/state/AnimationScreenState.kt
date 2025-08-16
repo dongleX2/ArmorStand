@@ -7,6 +7,7 @@ data class AnimationScreenState(
     val selectedAnimation: AnimationItem? = null,
     val embedAnimations: List<AnimationItem> = listOf(),
     val externalAnimations: List<AnimationItem> = listOf(),
+    val ikList: List<Pair<String?, Boolean>> = listOf(),
 ) {
     val animations: List<AnimationItem> by lazy {
         embedAnimations + externalAnimations

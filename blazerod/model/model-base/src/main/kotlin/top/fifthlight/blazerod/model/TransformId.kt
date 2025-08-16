@@ -18,4 +18,10 @@ enum class TransformId: Comparable<TransformId> {
         val FIRST = entries.first()
         val LAST = entries.last()
     }
+
+    val prev
+        get() = entries[ordinal - 1]
+
+    val next
+        get() = entries[ordinal + 1]
 }

@@ -121,11 +121,12 @@ data class NodeLoadInfo(
         ) : Component()
 
         data class IkTarget(
+            val ikIndex: Int,
             val ikTarget: ModelIkTarget,
             val transformId: TransformId,
         ) : Component()
 
-        data class InfluenceTarget(
+        data class InfluenceSource(
             val influence: Influence,
             val transformId: TransformId,
         ) : Component()

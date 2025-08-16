@@ -11,13 +11,13 @@ import java.util.*
 
 class TransformMap(first: NodeTransform?) {
     val transforms = EnumMap<TransformId, NodeTransform>(TransformId::class.java).also {
-        it.put(TransformId.FIRST, first ?: NodeTransform.Decomposed())
+        it[TransformId.FIRST] = first ?: NodeTransform.Decomposed()
     }
 
     private val dirtyTransforms = EnumSet.noneOf(TransformId::class.java)
 
     private val intermediateMatrices = EnumMap<TransformId, Matrix4f>(TransformId::class.java).also {
-        it.put(TransformId.FIRST, first?.matrix?.let { mat -> Matrix4f(mat) } ?: Matrix4f())
+        it[TransformId.FIRST] = first?.matrix?.let { mat -> Matrix4f(mat) } ?: Matrix4f()
     }
 
     /**
@@ -26,9 +26,9 @@ class TransformMap(first: NodeTransform?) {
      * @param id 起始 TransformId。
      */
     fun clearFrom(id: TransformId = TransformId.FIRST) {
-        transforms.keys.removeIf { it > id }
-        intermediateMatrices.keys.removeIf { it > id }
-        dirtyTransforms.removeIf { it > id }
+        transforms.keys.removeIf { it >= id }
+        intermediateMatrices.keys.removeIf { it >= id }
+        dirtyTransforms.removeIf { it >= id }
     }
 
     private val tempAccumulatedMatrix = Matrix4f()

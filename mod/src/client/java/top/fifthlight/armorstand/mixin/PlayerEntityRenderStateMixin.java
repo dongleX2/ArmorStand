@@ -21,34 +21,60 @@ public abstract class PlayerEntityRenderStateMixin implements PlayerEntityRender
     @Unique
     private boolean sprinting;
 
+    @Unique
+    private float limbSwingSpeed;
+
+    @Unique
+    private boolean dead;
+
     @Override
-    public void armorStand$setUuid(UUID uuid) {
+    public void armorstand$setUuid(UUID uuid) {
         this.uuid = uuid;
     }
 
     @Override
-    public UUID armorStand$getUuid() {
+    public UUID armorstand$getUuid() {
         return uuid;
     }
 
     @Override
-    public void armorStand$setRidingEntityType(@Nullable EntityType<?> entityType) {
+    public void armorstand$setRidingEntityType(@Nullable EntityType<?> entityType) {
         this.ridingEntityType = entityType;
     }
 
     @Nullable
     @Override
-    public EntityType<?> armorStand$getRidingEntityType() {
+    public EntityType<?> armorstand$getRidingEntityType() {
         return ridingEntityType;
     }
 
     @Override
-    public void armorStand$setSprinting(boolean sprinting) {
+    public void armorstand$setSprinting(boolean sprinting) {
         this.sprinting = sprinting;
     }
 
     @Override
-    public boolean armorStand$isSprinting() {
+    public boolean armorstand$isSprinting() {
         return sprinting;
+    }
+
+    @Override
+    public void armorstand$setLimbSwingSpeed(float limbSwingSpeed) {
+        this.limbSwingSpeed = limbSwingSpeed;
+    }
+
+    @Override
+    public float armorstand$getLimbSwingSpeed() {
+        return limbSwingSpeed;
+    }
+
+    @Override
+    public void armorstand$setDead(boolean dead) {
+        this.dead = dead;
+    }
+
+    @Override
+    public boolean armorstand$isDead() {
+        return dead;
     }
 }

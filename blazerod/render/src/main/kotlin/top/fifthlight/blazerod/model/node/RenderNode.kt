@@ -2,6 +2,7 @@ package top.fifthlight.blazerod.model.node
 
 import net.minecraft.util.Identifier
 import top.fifthlight.blazerod.model.*
+import top.fifthlight.blazerod.model.node.component.RenderNodeComponent
 import top.fifthlight.blazerod.util.AbstractRefCount
 
 class RenderNode(
@@ -40,6 +41,7 @@ class RenderNode(
     init {
         for (component in components) {
             component.increaseReferenceCount()
+            component.node = this
         }
     }
 
@@ -59,15 +61,15 @@ class RenderNode(
     private val phases = components.flatMap { it.updatePhases }.toSet()
     fun hasPhase(phase: UpdatePhase.Type) = phase in phases
     @Suppress("UNCHECKED_CAST")
-    fun <T : RenderNodeComponent<T>> getComponentsOfType(type: RenderNodeComponent.Type<T>): List<T>? =
+    fun <T : RenderNodeComponent<T>> getComponentsOfType(type: RenderNodeComponent.Type<T>): List<T> =
         typeComponents[type] as? List<T> ?: listOf()
     fun hasComponentOfType(type: RenderNodeComponent.Type<*>): Boolean = type in typeComponents.keys
 
     fun update(phase: UpdatePhase, node: RenderNode, instance: ModelInstance) {
-        phaseComponents[phase.type]?.forEach { component ->
-            component.update(phase, node, instance)
-        }
         if (phase == UpdatePhase.GlobalTransformPropagation) {
+            if (!instance.isNodeTransformDirty(node)) {
+                return
+            }
             val parent = parent
             val transformMap = instance.getTransformMap(this)
             val worldTransform = instance.getWorldTransform(this)
@@ -76,6 +78,11 @@ class RenderNode(
                 instance.getWorldTransform(parent).mul(currentLocalTransform, worldTransform)
             } else {
                 worldTransform.set(currentLocalTransform)
+            }
+            instance.cleanNodeTransformDirty(node)
+        } else {
+            phaseComponents[phase.type]?.forEach { component ->
+                component.update(phase, node, instance)
             }
         }
     }
@@ -94,3 +101,23 @@ fun RenderNode.forEach(action: (RenderNode) -> Unit) {
 
 fun ModelInstance.getTransformMap(node: RenderNode) = modelData.transformMaps[node.nodeIndex]
 fun ModelInstance.getWorldTransform(node: RenderNode) = modelData.worldTransforms[node.nodeIndex]
+fun ModelInstance.getTransformMap(nodeIndex: Int) = modelData.transformMaps[nodeIndex]
+fun ModelInstance.getWorldTransform(nodeIndex: Int) = modelData.worldTransforms[nodeIndex]
+private fun ModelInstance.isNodeTransformDirty(node: RenderNode) = modelData.transformDirty[node.nodeIndex]
+fun ModelInstance.markNodeTransformDirty(node: RenderNode) {
+    if (!modelData.transformDirty[node.nodeIndex]) {
+        modelData.transformDirty[node.nodeIndex] = true
+        modelData.undirtyNodeCount--
+        for (children in node.children) {
+            markNodeTransformDirty(children)
+        }
+    }
+}
+
+private fun ModelInstance.cleanNodeTransformDirty(node: RenderNode) {
+    if (modelData.transformDirty[node.nodeIndex]) {
+        modelData.transformDirty[node.nodeIndex] = false
+        modelData.undirtyNodeCount++
+    }
+}
+

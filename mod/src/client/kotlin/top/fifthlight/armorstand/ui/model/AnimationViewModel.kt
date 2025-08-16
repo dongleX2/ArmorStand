@@ -16,6 +16,7 @@ import top.fifthlight.armorstand.ui.state.AnimationScreenState
 import top.fifthlight.blazerod.animation.AnimationItem
 import top.fifthlight.blazerod.animation.AnimationLoader
 import top.fifthlight.blazerod.model.ModelFileLoaders
+import top.fifthlight.blazerod.model.ModelInstance
 import java.lang.ref.WeakReference
 
 class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
@@ -76,6 +77,8 @@ class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
     }
 
     private var prevAnimations = WeakReference<List<AnimationItem>>(null)
+    private var prevInstance = WeakReference<ModelInstance>(null)
+    private var ikUpdated = false
 
     fun tick() {
         val instanceItem = getInstanceItem() ?: run {
@@ -93,6 +96,19 @@ class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
                         name = animation.name,
                         duration = animation.duration.toDouble(),
                         source = AnimationScreenState.AnimationItem.Source.Embed(index),
+                    )
+                })
+            }
+        }
+        val instance = instanceItem.instance
+        if (instance != prevInstance.get() || ikUpdated) {
+            ikUpdated = false
+            prevInstance = WeakReference(instance)
+            _uiState.getAndUpdate {
+                it.copy(ikList = instance.scene.ikTargetComponents.mapIndexed { index, component ->
+                    Pair(
+                        instance.scene.nodes[component.effectorNodeIndex].nodeName,
+                        instance.modelData.ikEnabled[index],
                     )
                 })
             }
@@ -134,6 +150,7 @@ class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
                 instanceItem.instance.clearTransform()
                 instanceItem.controller = ModelController.Predefined(animation)
             }
+
             is AnimationScreenState.AnimationItem.Source.External -> {
                 instanceItem.controller = ModelController.LiveUpdated(instanceItem.instance.scene)
                 scope.launch {
@@ -167,5 +184,11 @@ class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
                 else -> it + 1
             }
         }
+    }
+
+    fun setIkEnabled(index: Int, enabled: Boolean) {
+        ikUpdated = true
+        val instanceItem = getInstanceItem() ?: return
+        instanceItem.instance.setIkEnabled(index, enabled)
     }
 }

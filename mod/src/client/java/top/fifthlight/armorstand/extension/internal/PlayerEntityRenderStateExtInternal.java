@@ -6,15 +6,24 @@ import org.jetbrains.annotations.Nullable;
 import java.util.UUID;
 
 public interface PlayerEntityRenderStateExtInternal {
-    void armorStand$setUuid(UUID uuid);
-    UUID armorStand$getUuid();
+    void armorstand$setUuid(UUID uuid);
 
-    void armorStand$setRidingEntityType(@Nullable EntityType<?> ridingEntityType);
+    UUID armorstand$getUuid();
+
+    void armorstand$setRidingEntityType(@Nullable EntityType<?> ridingEntityType);
 
     @Nullable
-    EntityType<?> armorStand$getRidingEntityType();
+    EntityType<?> armorstand$getRidingEntityType();
 
-    void armorStand$setSprinting(boolean sprinting);
+    void armorstand$setSprinting(boolean sprinting);
 
-    boolean armorStand$isSprinting();
+    boolean armorstand$isSprinting();
+
+    void armorstand$setLimbSwingSpeed(float limbSwingSpeed);
+
+    float armorstand$getLimbSwingSpeed();
+
+    void armorstand$setDead(boolean dead);
+
+    boolean armorstand$isDead();
 }

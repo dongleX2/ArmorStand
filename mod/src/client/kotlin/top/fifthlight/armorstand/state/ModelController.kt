@@ -3,6 +3,7 @@ package top.fifthlight.armorstand.state
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState
 import net.minecraft.entity.EntityPose
 import net.minecraft.entity.EntityType
+import net.minecraft.util.math.Direction
 import net.minecraft.util.math.MathHelper
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.extension.internal.PlayerEntityRenderStateExtInternal
@@ -14,6 +15,7 @@ import top.fifthlight.blazerod.model.*
 import top.fifthlight.blazerod.model.resource.RenderExpression
 import top.fifthlight.blazerod.model.resource.RenderExpressionGroup
 import java.util.*
+import kotlin.math.PI
 import kotlin.math.sin
 
 sealed class ModelController {
@@ -178,6 +180,7 @@ sealed class ModelController {
 
         sealed class State {
             abstract fun getItem(set: FullAnimationSet): AnimationItem
+            open val loop: Boolean = true
 
             data object Idle : State() {
                 override fun getItem(set: FullAnimationSet) = set.idle
@@ -209,6 +212,8 @@ sealed class ModelController {
 
             data object Dying : State() {
                 override fun getItem(set: FullAnimationSet) = set.die
+                override val loop: Boolean
+                    get() = false
             }
 
             data object Sprinting : State() {
@@ -231,9 +236,13 @@ sealed class ModelController {
 
         companion object {
             private val PlayerEntityRenderState.vehicleType
-                get() = (this as PlayerEntityRenderStateExtInternal).`armorStand$getRidingEntityType`()
+                get() = (this as PlayerEntityRenderStateExtInternal).`armorstand$getRidingEntityType`()
             private val PlayerEntityRenderState.isSprinting
-                get() = (this as PlayerEntityRenderStateExtInternal).`armorStand$isSprinting`()
+                get() = (this as PlayerEntityRenderStateExtInternal).`armorstand$isSprinting`()
+            private val PlayerEntityRenderState.isDead
+                get() = (this as PlayerEntityRenderStateExtInternal).`armorstand$isDead`()
+            private val PlayerEntityRenderState.limbSwingSpeed
+                get() = (this as PlayerEntityRenderStateExtInternal).`armorstand$getLimbSwingSpeed`()
             private val horseEntityTypes = listOf(
                 EntityType.HORSE,
                 EntityType.DONKEY,
@@ -244,32 +253,37 @@ sealed class ModelController {
             )
         }
 
-        private fun getState(vanillaState: PlayerEntityRenderState): State = when (vanillaState.pose) {
-            EntityPose.STANDING -> if (vanillaState.isSprinting) {
+        private fun getState(vanillaState: PlayerEntityRenderState): State = when {
+            vanillaState.vehicleType in horseEntityTypes -> State.OnHorse
+            vanillaState.vehicleType != null -> State.Riding
+            vanillaState.isDead -> State.Dying
+            vanillaState.pose == EntityPose.CROUCHING -> State.Sneaking
+            vanillaState.pose == EntityPose.GLIDING -> State.ElytraFly
+            vanillaState.pose == EntityPose.SLEEPING -> State.Sleeping
+            vanillaState.pose == EntityPose.SWIMMING -> State.Swimming
+
+            else -> if (vanillaState.isSprinting) {
                 State.Sprinting
-            } else if (vanillaState.limbAmplitudeInverse > 0.2) {
+            } else if (vanillaState.limbSwingSpeed > .4f) {
                 State.Walking
             } else {
                 State.Idle
             }
-
-            EntityPose.SITTING -> if (vanillaState.vehicleType in horseEntityTypes) {
-                State.OnHorse
-            } else {
-                State.Riding
-            }
-
-            EntityPose.CROUCHING -> State.Sneaking
-            EntityPose.GLIDING -> State.ElytraFly
-            EntityPose.SLEEPING -> State.Sleeping
-            EntityPose.SWIMMING -> State.Swimming
-            EntityPose.DYING -> State.Dying
-
-            else -> State.Idle
         }
 
         override fun update(uuid: UUID, vanillaState: PlayerEntityRenderState) {
-            bodyYaw = MathHelper.PI - vanillaState.bodyYaw.toRadian()
+            val sleepingDirection = vanillaState.sleepingDirection
+            bodyYaw = if (vanillaState.isInPose(EntityPose.SLEEPING) && sleepingDirection != null) {
+                when (sleepingDirection) {
+                    Direction.SOUTH -> 0f
+                    Direction.EAST -> PI.toFloat() * 0.5f
+                    Direction.NORTH -> PI.toFloat()
+                    Direction.WEST -> PI.toFloat() * 1.5f
+                    else -> 0f
+                }
+            } else {
+                MathHelper.PI - vanillaState.bodyYaw.toRadian()
+            }
             headYaw = -vanillaState.relativeHeadYaw.toRadian()
             headPitch = if (invertHeadDirection) {
                 vanillaState.pitch.toRadian()
@@ -292,7 +306,10 @@ sealed class ModelController {
                     duration = newItem.duration.toDouble(),
                     speed = AnimationViewModel.playSpeed.value,
                     loop = true,
-                )
+                ).apply {
+                    setLoop(newState.loop)
+                    play(System.nanoTime())
+                }
                 item = newItem
                 reset = true
             }

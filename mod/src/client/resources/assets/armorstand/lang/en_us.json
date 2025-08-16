@@ -43,6 +43,8 @@
   "armorstand.animation.refresh": "Refresh",
   "armorstand.animation.no_camera": "No camera",
   "armorstand.animation.current_camera_name": "Current camera: %s",
+  "armorstand.animation.ik_title": "IK",
+  "armorstand.animation.unnamed_ik_node": "Unnamed",
   "armorstand.metadata.title": "Title: %s",
   "armorstand.metadata.title.unknown": "Title: Unknown",
   "armorstand.metadata.version": "Version: %s", 

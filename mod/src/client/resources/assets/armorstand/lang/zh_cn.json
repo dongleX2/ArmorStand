@@ -43,6 +43,8 @@
   "armorstand.animation.refresh": "刷新",
   "armorstand.animation.no_camera": "无相机",
   "armorstand.animation.current_camera_name": "当前相机：%s",
+  "armorstand.animation.ik_title": "IK",
+  "armorstand.animation.unnamed_ik_node": "未命名",
   "armorstand.metadata.title": "标题：%s",
   "armorstand.metadata.title.unknown": "标题：未知",
   "armorstand.metadata.version": "版本：%s",

@@ -3,6 +3,7 @@ package top.fifthlight.blazerod.model.pmx.format
 import org.joml.Vector3fc
 
 data class PmxBone(
+    val index: Int,
     val nameLocal: String,
     val nameUniversal: String,
     val position: Vector3fc,
@@ -40,6 +41,7 @@ data class PmxBone(
         val isVisible: Boolean,
         val enabled: Boolean,
         val ik: Boolean,
+        val inheritLocal: Boolean,
         val inheritRotation: Boolean,
         val inheritTranslation: Boolean,
         val fixedAxis: Boolean,
@@ -68,11 +70,34 @@ data class PmxBone(
     }
 
     data class IkData(
+        val effectorIndex: Int,
         val targetIndex: Int,
         val loopCount: Int,
         val limitRadian: Float,
         val links: List<IkLink>,
     )
+
+    data class InheritData(
+        val sourceIndex: Int,
+        val targetIndex: Int,
+        val influence: Float,
+        val inheritRotation: Boolean,
+        val inheritTranslation: Boolean,
+        val inheritLocal: Boolean,
+    )
+
+    val inheritData = if (flags.inheritRotation || flags.inheritTranslation) {
+        InheritData(
+            sourceIndex = inheritParentIndex!!,
+            targetIndex = index,
+            influence = inheritParentInfluence!!,
+            inheritRotation = flags.inheritRotation,
+            inheritTranslation = flags.inheritTranslation,
+            inheritLocal = flags.inheritLocal,
+        )
+    } else {
+        null
+    }
 
     data class LocalCoordinate(
         val xVector: Vector3fc?,

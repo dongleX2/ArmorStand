@@ -4,14 +4,21 @@ import net.minecraft.client.gl.RenderPassImpl
 import top.fifthlight.blazerod.model.RenderScene
 import top.fifthlight.blazerod.model.TransformId
 import top.fifthlight.blazerod.model.node.RenderNode
-import top.fifthlight.blazerod.model.node.RenderNodeComponent.*
+import top.fifthlight.blazerod.model.node.component.*
 import top.fifthlight.blazerod.model.resource.RenderCamera
 import top.fifthlight.blazerod.model.resource.RenderMaterial
 import top.fifthlight.blazerod.model.resource.RenderPrimitive
+import top.fifthlight.blazerod.model.resource.RenderPrimitive.Targets
 import top.fifthlight.blazerod.model.resource.RenderTexture
 import top.fifthlight.blazerod.util.checkInUse
 
 class SceneReconstructor private constructor(private val info: GpuLoadModelLoadInfo) {
+    private val nodeIdToIndexMap = buildMap {
+        info.nodes.forEachIndexed { index, node ->
+            node.nodeId?.let { put(it, index) }
+        }
+    }
+
     private suspend fun loadTexture(
         textureInfo: MaterialLoadInfo.TextureInfo?,
         fallback: RenderTexture = RenderTexture.WHITE_RGBA_TEXTURE,
@@ -81,7 +88,7 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
                             indexBuffer = indexBuffer,
                             material = material,
                             targets = targets?.let {
-                                RenderPrimitive.Targets(
+                                Targets(
                                     position = it.position,
                                     color = it.color,
                                     texCoord = it.texCoord,
@@ -112,19 +119,34 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
                     Camera(cameraIndex)
                 }
 
-                is NodeLoadInfo.Component.InfluenceTarget -> {
+                is NodeLoadInfo.Component.InfluenceSource -> {
                     val influence = component.influence
-                    InfluenceTarget(
-                        sourceNodeIndex = info.nodes.indexOfFirst { it.nodeId == influence.source }.takeIf { it >= 0 }
-                            ?: return@mapNotNull null,
+                    InfluenceSource(
+                        targetNodeIndex = nodeIdToIndexMap[component.influence.target] ?: return@mapNotNull null,
                         influence = influence.influence,
                         influenceRotation = influence.influenceRotation,
                         influenceTranslation = influence.influenceTranslation,
+                        appendLocal = influence.appendLocal,
                         target = TransformId.INFLUENCE,
                     )
                 }
 
-                else -> null
+                is NodeLoadInfo.Component.IkTarget -> {
+                    IkTarget(
+                        ikIndex = component.ikIndex,
+                        limitRadian = component.ikTarget.limitRadian,
+                        loopCount = component.ikTarget.loopCount,
+                        transformId = component.transformId,
+                        effectorNodeIndex = nodeIdToIndexMap[component.ikTarget.effectorNodeId]
+                            ?: return@mapNotNull null,
+                        chains = component.ikTarget.joints.map {
+                            IkTarget.Chain(
+                                nodeIndex = nodeIdToIndexMap[it.nodeId] ?: return@mapNotNull null,
+                                limit = it.limit,
+                            )
+                        }
+                    )
+                }
             }
         },
     )

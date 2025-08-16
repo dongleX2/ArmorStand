@@ -35,7 +35,7 @@ public abstract class PlayerModelMixin {
         if (!(state instanceof PlayerEntityRenderState)) {
             return original.call(instance, state, showBody, translucent, showOutline);
         }
-        var uuid = ((PlayerEntityRenderStateExtInternal) state).armorStand$getUuid();
+        var uuid = ((PlayerEntityRenderStateExtInternal) state).armorstand$getUuid();
         if (uuid == null) {
             return original.call(instance, state, showBody, translucent, showOutline);
         }

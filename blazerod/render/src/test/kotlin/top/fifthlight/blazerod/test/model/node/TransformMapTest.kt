@@ -1,14 +1,13 @@
 package top.fifthlight.blazerod.test.model.node
 
+import org.joml.Matrix4f
+import org.joml.Quaternionf
+import org.joml.Vector3f
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import top.fifthlight.blazerod.model.NodeTransform
 import top.fifthlight.blazerod.model.TransformId
-import org.joml.Matrix4f
-import org.joml.Vector3f
-import org.joml.Quaternionf
 import top.fifthlight.blazerod.model.node.TransformMap
 
 class TransformMapTest {
@@ -384,7 +383,7 @@ class TransformMapTest {
         val initialPhysicsSum = transformMap.getSum(TransformId.PHYSICS)
         assertTrue(initialPhysicsSum.equals(Matrix4f().translate(1f, 1f, 1f), 1e-6f))
 
-        transformMap.clearFrom(TransformId.INFLUENCE)
+        transformMap.clearFrom(TransformId.IK)
 
         assertNotNull(transformMap.get(TransformId.RELATIVE_ANIMATION))
         assertNotNull(transformMap.get(TransformId.INFLUENCE))
@@ -410,7 +409,7 @@ class TransformMapTest {
         assertNotNull(transformMap.get(TransformId.INFLUENCE))
         assertNotNull(transformMap.get(TransformId.IK))
 
-        transformMap.clearFrom(TransformId.ABSOLUTE)
+        transformMap.clearFrom(TransformId.RELATIVE_ANIMATION)
 
         assertNotNull(transformMap.get(TransformId.ABSOLUTE))
         assertNull(transformMap.get(TransformId.RELATIVE_ANIMATION))
@@ -443,7 +442,7 @@ class TransformMapTest {
         val initialRelAnimTransform = transformMap.get(TransformId.RELATIVE_ANIMATION)
         val initialRelAnimSum = transformMap.getSum(TransformId.RELATIVE_ANIMATION)
 
-        transformMap.clearFrom(TransformId.INFLUENCE)
+        transformMap.clearFrom(TransformId.IK)
 
         assertNotNull(transformMap.get(TransformId.RELATIVE_ANIMATION))
         assertNotNull(transformMap.get(TransformId.INFLUENCE))

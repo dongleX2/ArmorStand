@@ -14,13 +14,15 @@ public class PlayerEntityRendererMixin {
     @Inject(method = "updateRenderState(Lnet/minecraft/client/network/AbstractClientPlayerEntity;Lnet/minecraft/client/render/entity/state/PlayerEntityRenderState;F)V", at = @At("HEAD"))
     public void onUpdateRenderState(AbstractClientPlayerEntity entity, PlayerEntityRenderState state, float tickProgress, CallbackInfo ci) {
         var stateInternal = ((PlayerEntityRenderStateExtInternal) state);
-        stateInternal.armorStand$setUuid(entity.getUuid());
+        stateInternal.armorstand$setUuid(entity.getUuid());
         var vehicle = entity.getVehicle();
         if (vehicle != null) {
-            stateInternal.armorStand$setRidingEntityType(vehicle.getType());
+            stateInternal.armorstand$setRidingEntityType(vehicle.getType());
         } else {
-            stateInternal.armorStand$setRidingEntityType(null);
+            stateInternal.armorstand$setRidingEntityType(null);
         }
-        stateInternal.armorStand$setSprinting(entity.isSprinting());
+        stateInternal.armorstand$setSprinting(entity.isSprinting());
+        stateInternal.armorstand$setLimbSwingSpeed(entity.limbAnimator.getSpeed());
+        stateInternal.armorstand$setDead(entity.isDead());
     }
 }

@@ -137,6 +137,20 @@ class AnimationScreen(parent: Screen? = null) : ArmorStandScreen<AnimationScreen
         }
     }
 
+    private val ikList = IkList(
+        client = currentClient,
+        width = 128,
+        onClicked = viewModel::setIkEnabled,
+    ).also {
+        scope.launch {
+            viewModel.uiState.map { state ->
+                state.ikList
+            }.distinctUntilChanged().collect { ikList ->
+                it.setList(ikList)
+            }
+        }
+    }
+
     private val refreshAnimationButton = ButtonWidget.builder(Text.translatable("armorstand.animation.refresh")) {
         viewModel.refreshAnimations()
     }.build()
@@ -163,14 +177,17 @@ class AnimationScreen(parent: Screen? = null) : ArmorStandScreen<AnimationScreen
     }
 
     override fun init() {
+        val controlBarHeight = 36
         val animationPanelWidth = 128
         val animationPanelHeight = 256.coerceAtMost(height / 3 * 2)
+        val ikPanelWidth = 128
+        val ikPanelHeight = 192.coerceAtMost(height / 3 * 2)
 
         val controlBar = BorderLayout(
             x = 16,
             y = 16,
             width = width - 16 * 3 - animationPanelWidth,
-            height = 36,
+            height = controlBarHeight,
             direction = BorderLayout.Direction.HORIZONTAL,
             surface = Surface.listBackground(),
         )
@@ -228,6 +245,34 @@ class AnimationScreen(parent: Screen? = null) : ArmorStandScreen<AnimationScreen
         animationPanel.refreshPositions()
         addDrawable(animationPanel)
         animationPanel.forEachChild { addDrawableChild(it) }
+
+        val ikPanel = BorderLayout(
+            x = 16,
+            y = 16 * 2 + controlBarHeight,
+            width = ikPanelWidth,
+            height = ikPanelHeight,
+            surface = Surface.listBackground(),
+            direction = BorderLayout.Direction.VERTICAL,
+        ).apply {
+            setFirstElement(
+                widget = TextWidget(
+                    ikPanelWidth - 16,
+                    textRenderer.fontHeight,
+                    Text.translatable("armorstand.animation.ik_title").formatted(Formatting.BOLD)
+                        .formatted(Formatting.UNDERLINE),
+                    textRenderer,
+                ),
+                positioner = Positioner.create().margin(8, 8),
+            )
+            animationList.width = ikPanelWidth - 16
+            setCenterElement(
+                widget = ikList,
+                positioner = Positioner.create().margin(8, 0, 8, 8),
+            )
+        }
+        ikPanel.refreshPositions()
+        addDrawable(ikPanel)
+        ikPanel.forEachChild { addDrawableChild(it) }
     }
 
     override fun tick() {

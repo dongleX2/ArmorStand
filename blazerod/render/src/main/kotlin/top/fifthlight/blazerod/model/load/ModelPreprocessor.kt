@@ -461,6 +461,7 @@ class ModelPreprocessor private constructor(
         NodeLoadInfo.Component.Primitive(index)
     }
 
+    private var ikCount = 0
     private val nodes = mutableListOf<NodeLoadInfo>()
     private fun loadNode(node: Node): Int {
         val skinJointData = skinJointsData[node.id]
@@ -502,15 +503,16 @@ class ModelPreprocessor private constructor(
                         is NodeComponent.IkTargetComponent -> {
                             add(
                                 NodeLoadInfo.Component.IkTarget(
+                                    ikIndex = ikCount++,
                                     ikTarget = component.ikTarget,
                                     transformId = component.transformId,
                                 )
                             )
                         }
 
-                        is NodeComponent.InfluenceTargetComponent -> {
+                        is NodeComponent.InfluenceSourceComponent -> {
                             add(
-                                NodeLoadInfo.Component.InfluenceTarget(
+                                NodeLoadInfo.Component.InfluenceSource(
                                     influence = component.influence,
                                     transformId = component.transformId,
                                 )
@@ -590,7 +592,7 @@ class ModelPreprocessor private constructor(
         return Pair(expressions, expressionGroups)
     }
 
-    private fun loadScene(scene: Scene, expressions: List<Expression>): PreProcessModelLoadInfo? {
+    private fun loadScene(scene: Scene, expressions: List<Expression>): PreProcessModelLoadInfo {
         val rootNode = NodeLoadInfo(
             nodeId = null,
             nodeName = "Root node",

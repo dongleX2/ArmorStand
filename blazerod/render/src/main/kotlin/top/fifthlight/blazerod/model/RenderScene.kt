@@ -5,8 +5,10 @@ import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.util.Identifier
 import org.joml.Matrix4fc
 import top.fifthlight.blazerod.model.node.RenderNode
-import top.fifthlight.blazerod.model.node.RenderNodeComponent
 import top.fifthlight.blazerod.model.node.UpdatePhase
+import top.fifthlight.blazerod.model.node.component.IkTarget
+import top.fifthlight.blazerod.model.node.component.Primitive
+import top.fifthlight.blazerod.model.node.component.RenderNodeComponent
 import top.fifthlight.blazerod.model.node.forEach
 import top.fifthlight.blazerod.model.resource.RenderCamera
 import top.fifthlight.blazerod.model.resource.RenderExpression
@@ -31,8 +33,9 @@ class RenderScene(
 
     private val sortedNodes: List<RenderNode>
     private val debugRenderNodes: List<RenderNode>
-    val primitiveComponents: List<RenderNodeComponent.Primitive>
-    val morphedPrimitiveComponents: List<RenderNodeComponent.Primitive>
+    val primitiveComponents: List<Primitive>
+    val morphedPrimitiveComponents: List<Primitive>
+    val ikTargetComponents: List<IkTarget>
     val nodeIdMap: Map<NodeId, RenderNode>
     val nodeNameMap: Map<String, RenderNode>
     val humanoidTagMap: Map<HumanoidTag, RenderNode>
@@ -40,8 +43,9 @@ class RenderScene(
         rootNode.increaseReferenceCount()
         val nodes = mutableListOf<RenderNode>()
         val debugRenderNodes = mutableListOf<RenderNode>()
-        val primitiveComponents = mutableListOf<RenderNodeComponent.Primitive>()
-        val morphedPrimitives = Int2ReferenceOpenHashMap<RenderNodeComponent.Primitive>()
+        val primitiveComponents = mutableListOf<Primitive>()
+        val morphedPrimitives = Int2ReferenceOpenHashMap<Primitive>()
+        val ikTargets = Int2ReferenceOpenHashMap<IkTarget>()
         val nodeIdMap = mutableMapOf<NodeId, RenderNode>()
         val nodeNameMap = mutableMapOf<String, RenderNode>()
         val humanoidTagMap = mutableMapOf<HumanoidTag, RenderNode>()
@@ -53,7 +57,7 @@ class RenderScene(
             if (node.hasPhase(UpdatePhase.Type.DEBUG_RENDER)) {
                 debugRenderNodes.add(node)
             }
-            node.getComponentsOfType(RenderNodeComponent.Type.Primitive)?.let { components ->
+            node.getComponentsOfType(RenderNodeComponent.Type.Primitive).let { components ->
                 primitiveComponents.addAll(components)
                 for (component in components) {
                     component.morphedPrimitiveIndex?.let { index ->
@@ -64,12 +68,18 @@ class RenderScene(
                     }
                 }
             }
+            node.getComponentsOfType(RenderNodeComponent.Type.IkTarget).forEach { component ->
+                ikTargets.put(component.ikIndex, component)
+            }
         }
         this.sortedNodes = nodes
         this.debugRenderNodes = debugRenderNodes
         this.primitiveComponents = primitiveComponents
         this.morphedPrimitiveComponents = (0 until morphedPrimitives.size).map {
             morphedPrimitives.get(it) ?: error("Morphed primitive index not found: $it")
+        }
+        this.ikTargetComponents = (0 until ikTargets.size).map {
+            ikTargets.get(it) ?: error("Ik target index not found: $it")
         }
         this.nodeIdMap = nodeIdMap
         this.nodeNameMap = nodeNameMap
@@ -86,6 +96,11 @@ class RenderScene(
         if (cameras.isEmpty()) {
             return
         }
+        if (instance.modelData.undirtyNodeCount == nodes.size) {
+            return
+        }
+        executePhase(instance, UpdatePhase.GlobalTransformPropagation)
+        executePhase(instance, UpdatePhase.IkUpdate)
         executePhase(instance, UpdatePhase.InfluenceTransformUpdate)
         executePhase(instance, UpdatePhase.GlobalTransformPropagation)
         executePhase(instance, UpdatePhase.CameraUpdate)
@@ -95,14 +110,23 @@ class RenderScene(
         if (debugRenderNodes.isEmpty()) {
             return
         }
-        executePhase(instance, UpdatePhase.InfluenceTransformUpdate)
-        executePhase(instance, UpdatePhase.GlobalTransformPropagation)
+        if (instance.modelData.undirtyNodeCount != nodes.size) {
+            executePhase(instance, UpdatePhase.GlobalTransformPropagation)
+            executePhase(instance, UpdatePhase.IkUpdate)
+            executePhase(instance, UpdatePhase.InfluenceTransformUpdate)
+            executePhase(instance, UpdatePhase.GlobalTransformPropagation)
+        }
         UpdatePhase.DebugRender.acquire(viewProjectionMatrix, consumers).use {
             executePhase(instance, it)
         }
     }
 
     fun updateRenderData(instance: ModelInstance) {
+        if (instance.modelData.undirtyNodeCount == nodes.size) {
+            return
+        }
+        executePhase(instance, UpdatePhase.GlobalTransformPropagation)
+        executePhase(instance, UpdatePhase.IkUpdate)
         executePhase(instance, UpdatePhase.InfluenceTransformUpdate)
         executePhase(instance, UpdatePhase.GlobalTransformPropagation)
         executePhase(instance, UpdatePhase.RenderDataUpdate)
